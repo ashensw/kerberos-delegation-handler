@@ -28,8 +28,10 @@ import org.apache.synapse.MessageContext;
 import org.apache.synapse.core.axis2.Axis2MessageContext;
 import org.apache.synapse.core.axis2.Axis2Sender;
 import org.apache.synapse.rest.AbstractHandler;
-import org.wso2.apim.kerberos.handler.utils.KerberosDelegator;
-import org.wso2.apim.kerberos.handler.utils.User;
+import org.wso2.apim.kerberos.handler.processor.KerberosDelegationProcessor;
+import org.wso2.apim.kerberos.handler.model.User;
+import org.wso2.apim.kerberos.handler.utils.KerberosConstants;
+import org.wso2.apim.kerberos.handler.utils.KerberosUtils;
 import org.wso2.carbon.utils.CarbonUtils;
 
 import java.nio.file.Paths;
@@ -38,6 +40,7 @@ import java.util.Map;
 import javax.security.auth.login.Configuration;
 
 public class CustomKerberosDelegationHandler extends AbstractHandler {
+
     private static final Log log = LogFactory.getLog(CustomKerberosDelegationHandler.class);
     private static final boolean IS_DEBUG_ENABLED = Boolean.parseBoolean(System.getProperty("debug", "false"));
 
@@ -59,9 +62,10 @@ public class CustomKerberosDelegationHandler extends AbstractHandler {
             System.setProperty("sun.security.jgss.debug", "true");
         }
 
-        Map headers = getTransportHeaders(messageContext);
-        if (getKerberosHeader(headers) == null) {
-            return unAuthorizedUser(headers, messageContext, null);
+        Map headers = KerberosUtils.getTransportHeaders(messageContext);
+        if (KerberosUtils.getKerberosHeader(headers) == null) {
+            return KerberosUtils.setAsUnAuthorizedUser(headers,
+                    messageContext, null);
         } else {
 
             String jaasConfigPathold = System.getProperty(KerberosConstants.LOGIN_CONFIG_PROPERTY);
@@ -106,18 +110,21 @@ public class CustomKerberosDelegationHandler extends AbstractHandler {
 
     }
 
-    private String getDelegatedTicket(User user, Map headers) throws Exception {
-        KerberosDelegator kerberosDelegator = new KerberosDelegator(user.getSubject());
-        String clientKerberosTicket = getKerberosHeader(headers);
+   private String getDelegatedTicket(User user, Map headers) throws Exception {
+
+        KerberosDelegationProcessor kerberosDelegationProcessor =
+                new KerberosDelegationProcessor(user.getSubject());
+        String clientKerberosTicket = KerberosUtils.getKerberosHeader(headers);
         if (log.isDebugEnabled()) {
-            log.info("Acquired Client's Kerberos ticket: " + clientKerberosTicket);
-            log.info("Initiating constrained delegation for SPN: " + targetSPN);
+            log.debug("Acquired Client's Kerberos ticket: " + clientKerberosTicket);
+            log.debug("Initiating constrained delegation for SPN: " + targetSPN);
         }
-        byte[] delegatedTicket = kerberosDelegator
-                .delegate(Base64.getDecoder().decode(clientKerberosTicket.split(" ")[1]), targetSPN);
-        String delegatedKerberosTicket = Base64.getEncoder().encodeToString(delegatedTicket);
+        byte[] delegatedTicket =
+                kerberosDelegationProcessor.delegate(Base64.getDecoder().decode(clientKerberosTicket.split(" ")[1]), targetSPN);
+        String delegatedKerberosTicket =
+                Base64.getEncoder().encodeToString(delegatedTicket);
         if (log.isDebugEnabled()) {
-            log.info("Acquired delegated Kerberos ticket: " + delegatedKerberosTicket);
+            log.debug("Acquired delegated Kerberos ticket: " + delegatedKerberosTicket);
         }
         return delegatedKerberosTicket;
 
@@ -127,44 +134,10 @@ public class CustomKerberosDelegationHandler extends AbstractHandler {
         return true;
     }
 
-    private String getKerberosHeader(Map headers) {
-        return (String) headers.get(HttpHeaders.AUTHORIZATION);
-    }
-
     private void setKerberosHeader(Map headers, String delegatedKerberosTicket) {
         headers.put(HttpHeaders.AUTHORIZATION, KerberosConstants.NEGOTIATE + " " + delegatedKerberosTicket);
     }
 
-    private Map getTransportHeaders(MessageContext messageContext) {
-        return (Map) ((Axis2MessageContext) messageContext).getAxis2MessageContext().
-                getProperty(org.apache.axis2.context.MessageContext.TRANSPORT_HEADERS);
-    }
 
-    private boolean unAuthorizedUser(Map headersMap, MessageContext messageContext, byte[] serverToken) {
-        org.apache.axis2.context.MessageContext axis2MessageContext = ((Axis2MessageContext) messageContext)
-                .getAxis2MessageContext();
-        String outServerTokenString = null;
-        headersMap.clear();
-        try {
-            if (serverToken != null) {
-                outServerTokenString = Base64.getEncoder().encodeToString(serverToken);
-            }
-            axis2MessageContext.setProperty("HTTP_SC", "401");
-            if (outServerTokenString != null) {
-                headersMap.put(KerberosConstants.AUTHENTICATE_HEADER,
-                        KerberosConstants.NEGOTIATE + " " + outServerTokenString);
-            } else {
-                headersMap.put(KerberosConstants.AUTHENTICATE_HEADER, KerberosConstants.NEGOTIATE);
-            }
-            axis2MessageContext.setProperty("NO_ENTITY_BODY", new Boolean("true"));
-            messageContext.setProperty("RESPONSE", "true");
-            messageContext.setTo(null);
-            Axis2Sender.sendBack(messageContext);
-            return false;
-
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
 }

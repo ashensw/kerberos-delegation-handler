@@ -19,13 +19,12 @@
  *
  */
 
-package org.wso2.apim.kerberos.handler.utils;
+package org.wso2.apim.kerberos.handler.model;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import javax.security.auth.Subject;
-import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 
@@ -48,9 +47,11 @@ public class User {
             throw new IllegalStateException("User '" + getSubject().toString() + "' is already logged in.");
         }
 
-        Configuration.setConfiguration(null);
+        log.debug("Initiating the Pre-authentication process for the login " +
+                "context :" + loginContextName);
         LoginContext loginContext = new LoginContext(loginContextName);
         loginContext.login();
+        log.debug("Pre-authentication successful for with Kerberos Server.");
         this.loginContext = loginContext;
     }
 
@@ -88,4 +89,9 @@ public class User {
     public boolean isLoggedin() {
         return loginContext != null;
     }
+
+    public LoginContext getLoginContext() {
+        return loginContext;
+    }
+
 }
