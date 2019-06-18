@@ -19,7 +19,7 @@
  *
  */
 
-package org.wso2.apim.kerberos.handler.utils;
+package org.wso2.apim.kerberos.handler.processor;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -37,14 +37,14 @@ import javax.security.auth.Subject;
 /**
  * Kerberos delegator.
  */
-public class KerberosDelegator {
+public class KerberosDelegationProcessor {
 
-    private static final Log log = LogFactory.getLog(KerberosDelegator.class);
+    private static final Log log = LogFactory.getLog(KerberosDelegationProcessor.class);
     private final Oid krb5PrincipalNameType;
     private final Oid spnegoOid;
     private final Subject selfSubject;
 
-    public KerberosDelegator(Subject selfSubject) {
+    public KerberosDelegationProcessor(Subject selfSubject) {
         this.selfSubject = selfSubject;
         this.krb5PrincipalNameType = getOid("1.2.840.113554.1.2.2.1"); // http://oid-info.com/get/1.2.840.113554.1.2.2.1
         this.spnegoOid = getOid("1.3.6.1.5.5.2"); // http://oid-info.com/get/1.3.6.1.5.5.2

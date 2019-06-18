@@ -19,7 +19,7 @@
  *
  */
 
-package org.wso2.apim.kerberos.handler;
+package org.wso2.apim.kerberos.handler.utils;
 
 /**
  * Constants for IWA federated authenticator application
@@ -28,13 +28,30 @@ public class KerberosConstants {
 
     public static final String UTF_8 = "UTF-8";
     public static final String AUTHENTICATE_HEADER = "WWW-Authenticate";
-    public static final String LOGIN_CONFIG_PROPERTY = "java.security.auth.login.config";
+    public static final String LOGIN_CONFIG_PROPERTY = "java.security.auth" +
+            ".login.config";
     public static final String LOGIN_CONF_FILE_NAME = "login.conf";
-    public static final String KERBEROS_CONFIG_PROPERTY = "java.security.krb5.conf";
+    public static final String KERBEROS_CONFIG_PROPERTY = "java.security.krb5" +
+            ".conf";
     public static final String KERBEROS_CONF_FILE_NAME = "krb5.conf";
     public static final String LOGIN_CONTEXT_NAME = "loginContextName";
+
     // Negotiate header string.
     public static final String NEGOTIATE = "Negotiate";
+
+    //Authentication Types
+    public static final String AUTHENTICATION_MODE_DELEGATION = "Delegation";
+    public static final String AUTHENTICATION_MODE_TRUSTED = "Trusted";
+
+    //Oid for SPENGO mechanism.
+    public static final String SPNEGO_BASED_OID = "1.3.6.1.5.5.2";
+
+    public static final String KERBEROS_CONF_FOLDER_NAME = "kerberos";
+
+    public static final String LOGIN_CONFIG_DEBUG_PROPERTY = "sun.security" +
+            ".krb5.debug";
+    public static final String KERBEROS_CONFIG_DEBUG_PROPERTY = "sun.security.jgss.debug";
+
 
 
     private KerberosConstants() {
