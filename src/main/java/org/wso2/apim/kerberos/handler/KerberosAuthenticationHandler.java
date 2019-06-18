@@ -50,7 +50,6 @@ public class KerberosAuthenticationHandler  extends AbstractHandler {
     @Override
     public boolean handleRequest(MessageContext messageContext) {
 
-
         Map headers = KerberosUtils.getTransportHeaders(messageContext);
         if( KerberosConstants.AUTHENTICATION_MODE_DELEGATION.equalsIgnoreCase(getAuthenticationMode())){
             if (KerberosUtils.getKerberosHeader(headers) == null) {
