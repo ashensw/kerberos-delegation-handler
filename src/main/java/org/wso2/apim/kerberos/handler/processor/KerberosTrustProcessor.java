@@ -8,6 +8,7 @@ import org.ietf.jgss.GSSException;
 import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.GSSName;
 import org.ietf.jgss.Oid;
+import org.wso2.apim.kerberos.handler.exception.KerberosPermissionException;
 import org.wso2.apim.kerberos.handler.utils.KerberosConstants;
 
 import java.security.PrivilegedActionException;
@@ -18,23 +19,31 @@ public class KerberosTrustProcessor {
 
     private static final Log log = LogFactory.getLog(KerberosTrustProcessor.class);
     private final Subject selfSubject;
-    private final Oid spnegoOid;
+    private Oid spnegoOid = null;
 
     private GSSManager gssManager = GSSManager.getInstance();
 
-    public KerberosTrustProcessor(Subject selfSubject) throws GSSException {
+    public KerberosTrustProcessor(Subject selfSubject) {
         this.selfSubject = selfSubject;
-        this.spnegoOid = new Oid(KerberosConstants.SPNEGO_BASED_OID);
+        try{
+            this.spnegoOid = new Oid(KerberosConstants.SPNEGO_BASED_OID);
+        } catch (GSSException e) {
+            // Won't happen as only valid strings are passed.
+        }
     }
 
 
-    public byte[] trust(String targetSPN) throws Exception {
+    public byte[] trust(String targetSPN) throws KerberosPermissionException {
         GSSCredential trustCredential = null;
         GSSContext context = null;
         try {
             trustCredential = getCredential();
             context = startAsClient(targetSPN, trustCredential);
             return context.initSecContext(new byte[0], 0, 0);
+        } catch (GSSException e){
+            throw new KerberosPermissionException("Kerberos permission " +
+                    "validation failed - couldn't not initialize the kerberos" +
+                    " context", e);
         } finally {
             if (context != null) {
                 try {
@@ -54,7 +63,7 @@ public class KerberosTrustProcessor {
     }
 
 
-    private GSSCredential getCredential() throws Exception {
+    private GSSCredential getCredential() throws KerberosPermissionException {
 
 
         try {
@@ -72,17 +81,18 @@ public class KerberosTrustProcessor {
 
             return Subject.doAs(selfSubject, action);
         } catch (PrivilegedActionException e) {
-            throw new Exception("Cannot create GSS credential from client's Kerberos ticket.", e.getException());
+            throw new KerberosPermissionException("Cannot create GSS credential from client's Kerberos ticket.", e.getException());
+        } catch (GSSException e){
+            throw new KerberosPermissionException("Starting the " +
+                    "Kerberos client's context failed", e);
         }
     }
 
-    private GSSContext startAsClient(String targetSPN, GSSCredential gssCredential) throws Exception {
+    private GSSContext startAsClient(String targetSPN, GSSCredential gssCredential) throws KerberosPermissionException {
         PrivilegedExceptionAction<GSSContext> action = new PrivilegedExceptionAction<GSSContext>() {
             @Override
-            public GSSContext run() throws Exception {
+            public GSSContext run() throws GSSException {
                 GSSName serverName = gssManager.createName(targetSPN, GSSName.NT_USER_NAME);
-                //gssContext.requestMutualAuth(true);
-                //gssContext.requestCredDeleg(true);
                 return gssManager
                         .createContext(serverName.canonicalize(spnegoOid), spnegoOid, gssCredential,
                                 GSSContext.DEFAULT_LIFETIME);
@@ -94,7 +104,7 @@ public class KerberosTrustProcessor {
             return gssManager.createContext(serverName.canonicalize(spnegoOid),
                     spnegoOid, gssCredential, GSSContext.DEFAULT_LIFETIME);
         } catch (GSSException e) {
-            throw new Exception(
+            throw new KerberosPermissionException(
                     "Cannot create GSS context for '" + targetSPN + "' SPN using '" + gssCredential + "'.");
         }
     }

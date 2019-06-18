@@ -7,6 +7,7 @@ import org.apache.synapse.MessageContext;
 import org.apache.synapse.core.axis2.Axis2MessageContext;
 import org.apache.synapse.rest.AbstractHandler;
 import org.ietf.jgss.GSSManager;
+import org.wso2.apim.kerberos.handler.exception.KerberosPermissionException;
 import org.wso2.apim.kerberos.handler.processor.KerberosDelegationProcessor;
 import org.wso2.apim.kerberos.handler.processor.KerberosTrustProcessor;
 import org.wso2.apim.kerberos.handler.model.User;
@@ -72,18 +73,27 @@ public class KerberosAuthenticationHandler  extends AbstractHandler {
         User user = new User();
         try {
             user.login(this.loginContextName);
-            byte[] serviceTicket = new byte[0];
 
-            if( KerberosConstants.AUTHENTICATION_MODE_DELEGATION.equalsIgnoreCase(getAuthenticationMode())){
-                serviceTicket = getDelegatedTicket(user, headers);
+            if(user.isLoggedin()){
+                byte[] serviceTicket = new byte[0];
+
+                try{
+                    if( KerberosConstants.AUTHENTICATION_MODE_DELEGATION.equalsIgnoreCase(getAuthenticationMode())){
+                        serviceTicket = getDelegatedTicket(user, headers);
+                    } else {
+                        serviceTicket = getTrustedTicket(user);
+                    }
+                    KerberosUtils.setKerberosTokenToHeader((Axis2MessageContext) messageContext,
+                            serviceTicket);
+                    return true;
+                } catch (KerberosPermissionException e){
+                    //Failed - no need to handle
+                } catch (UnsupportedEncodingException e){
+                    log.error("Encoding operation failed", e);
+                }
             } else {
-                serviceTicket = getTrustedTicket(user);
+                return false;
             }
-            KerberosUtils.setKerberosTokenToHeader((Axis2MessageContext) messageContext,
-                    serviceTicket);
-            return true;
-        } catch (Exception e) {
-           //TO DO:
         } finally {
             user.logout();
             // Revert back to previous configs
@@ -130,7 +140,7 @@ public class KerberosAuthenticationHandler  extends AbstractHandler {
     }
 
 
-    private byte[] getTrustedTicket(User user) throws Exception {
+    private byte[] getTrustedTicket(User user) throws KerberosPermissionException {
 
         log.debug("Invoking the getTrustedTicket for the principle " +
                 user.getSubject().getPrincipals().toString());
@@ -140,7 +150,7 @@ public class KerberosAuthenticationHandler  extends AbstractHandler {
         return kerberosTrustProcessor.trust(this.targetSPN);
     }
 
-    private byte[] getDelegatedTicket(User user, Map headers) throws Exception {
+    private byte[] getDelegatedTicket(User user, Map headers) throws KerberosPermissionException {
 
         KerberosDelegationProcessor kerberosDelegationProcessor =
                 new KerberosDelegationProcessor(user.getSubject());
