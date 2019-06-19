@@ -143,6 +143,7 @@ public class KerberosAuthenticationHandler  extends AbstractHandler {
 
         log.debug("Invoking the getTrustedTicket for the principle " +
                 user.getSubject().getPrincipals().toString());
+
         KerberosTrustProcessor kerberosTrustProcessor =
                 new KerberosTrustProcessor(user.getSubject());
 
