@@ -29,6 +29,8 @@ import org.ietf.jgss.GSSException;
 import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.GSSName;
 import org.ietf.jgss.Oid;
+import org.wso2.apim.kerberos.handler.exception.KerberosConfigurationException;
+import org.wso2.apim.kerberos.handler.exception.KerberosPermissionException;
 
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
@@ -50,13 +52,17 @@ public class KerberosDelegationProcessor {
         this.spnegoOid = getOid("1.3.6.1.5.5.2"); // http://oid-info.com/get/1.3.6.1.5.5.2
     }
 
-    public byte[] delegate(byte[] clientKerberosTicket, String targetSPN) throws Exception {
+    public byte[] delegate(byte[] clientKerberosTicket, String targetSPN) throws KerberosPermissionException {
         GSSCredential delegationCredential = null;
         GSSContext context = null;
         try {
             delegationCredential = getDelegationCredential(clientKerberosTicket);
             context = startAsClient(targetSPN, delegationCredential);
             return context.initSecContext(new byte[0], 0, 0);
+        } catch (GSSException e){
+            throw new KerberosPermissionException("Kerberos permission " +
+                    "validation failed - couldn't not initialize the kerberos" +
+                    " context", e);
         } finally {
             if (context != null) {
                 try {
@@ -70,15 +76,17 @@ public class KerberosDelegationProcessor {
                     delegationCredential.dispose();
                 } catch (GSSException e) {
                     // ignore
+                    log.warn("Credential delegation failed");
                 }
             }
         }
     }
 
-    private GSSCredential getDelegationCredential(byte[] clientKerberosTicket) throws Exception {
+    private GSSCredential getDelegationCredential(byte[] clientKerberosTicket) throws
+            KerberosPermissionException {
         PrivilegedExceptionAction<GSSCredential> action = new PrivilegedExceptionAction<GSSCredential>() {
             @Override
-            public GSSCredential run() throws Exception {
+            public GSSCredential run() throws KerberosPermissionException, KerberosConfigurationException {
                 GSSContext context = null;
                 try {
                     GSSManager manager = GSSManager.getInstance();
@@ -90,14 +98,21 @@ public class KerberosDelegationProcessor {
                     if (context.getCredDelegState()) {
                         return context.getDelegCred();
                     } else {
-                        throw new Exception("Credential delegation is not configured properly.");
+                        throw new KerberosConfigurationException("Credential delegation is not " +
+                                "configured properly.");
                     }
+                } catch (GSSException e){
+                    throw new KerberosPermissionException("Creating Kerberos " +
+                            "context failed", e);
                 } finally {
                     if (context != null) {
                         try {
                             context.dispose();
                         } catch (GSSException e) {
                             // ignore
+                            log.warn("Kerberos context disposing failed. But " +
+                                    "no harm done");
+
                         }
                     }
                 }
@@ -106,28 +121,35 @@ public class KerberosDelegationProcessor {
         try {
             return Subject.doAs(selfSubject, action);
         } catch (PrivilegedActionException e) {
-            throw new Exception("Cannot create GSS credential from client's Kerberos ticket.", e.getException());
+            throw new KerberosPermissionException("Cannot create GSS " +
+                    "credential from client's Kerberos ticket.", e.getException());
         }
     }
 
-    private GSSContext startAsClient(String targetSPN, GSSCredential delegationCredential) throws Exception {
+    private GSSContext startAsClient(String targetSPN, GSSCredential delegationCredential) throws KerberosPermissionException {
         PrivilegedExceptionAction<GSSContext> action = new PrivilegedExceptionAction<GSSContext>() {
             @Override
-            public GSSContext run() throws Exception {
-                GSSManager manager = GSSManager.getInstance();
-                GSSName serverName = manager.createName(targetSPN, krb5PrincipalNameType);
-                GSSContext gssContext = manager
-                        .createContext(serverName.canonicalize(spnegoOid), spnegoOid, delegationCredential,
-                                GSSContext.DEFAULT_LIFETIME);
-                //gssContext.requestMutualAuth(true);
-                //gssContext.requestCredDeleg(true);
-                return gssContext;
+            public GSSContext run() throws KerberosPermissionException {
+                try {
+
+                    GSSManager manager = GSSManager.getInstance();
+                    GSSName serverName = manager.createName(targetSPN, krb5PrincipalNameType);
+                    GSSContext gssContext = manager
+                            .createContext(serverName.canonicalize(spnegoOid), spnegoOid, delegationCredential,
+                                    GSSContext.DEFAULT_LIFETIME);
+                    //gssContext.requestMutualAuth(true);
+                    //gssContext.requestCredDeleg(true);
+                    return gssContext;
+                } catch (GSSException e){
+                    throw new KerberosPermissionException("Starting the " +
+                            "Kerberos client's context failed", e);
+                }
             }
         };
         try {
             return Subject.doAs(selfSubject, action);
         } catch (PrivilegedActionException e) {
-            throw new Exception(
+            throw new KerberosPermissionException(
                     "Cannot create GSS context for '" + targetSPN + "' SPN using '" + delegationCredential + "'.",
                     e.getException());
         }

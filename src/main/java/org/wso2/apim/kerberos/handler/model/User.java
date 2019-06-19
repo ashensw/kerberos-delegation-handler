@@ -34,7 +34,7 @@ import javax.security.auth.login.LoginException;
 public class User {
 
     private static final Log log = LogFactory.getLog(User.class);
-    private LoginContext loginContext;
+    private LoginContext loginContext = null;
 
     /**
      * Login this user using the given login context.
@@ -42,17 +42,21 @@ public class User {
      * @param loginContextName login context name
      * @throws Exception if login fails
      */
-    public void login(String loginContextName) throws Exception {
+    public void login(String loginContextName){
         if (isLoggedin()) {
             throw new IllegalStateException("User '" + getSubject().toString() + "' is already logged in.");
         }
 
         log.debug("Initiating the Pre-authentication process for the login " +
                 "context :" + loginContextName);
-        LoginContext loginContext = new LoginContext(loginContextName);
-        loginContext.login();
-        log.debug("Pre-authentication successful for with Kerberos Server.");
-        this.loginContext = loginContext;
+        try {
+            this.loginContext = new LoginContext(loginContextName);
+            loginContext.login();
+            log.debug("Pre-authentication successful for with Kerberos Server.");
+        } catch (LoginException e) {
+            log.error("Log-in failed with the context " + loginContextName);
+        }
+        ///this.loginContext = loginContext;
     }
 
     /**
