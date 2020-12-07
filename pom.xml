@@ -6,7 +6,7 @@
 
     <groupId>org.wso2.apim.demo.kerberos</groupId>
     <artifactId>org.wso2.apim.kerberos.handler</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>bundle</packaging>
 
     <name>org.wso2.apim.kerberos.handler</name>
