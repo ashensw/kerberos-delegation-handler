@@ -61,11 +61,7 @@ public class KerberosUtils {
                                         byte[] serviceTicket) throws UnsupportedEncodingException {
 
         org.apache.axis2.context.MessageContext msgCtx = synCtx.getAxis2MessageContext();
-        Map<String, Object> headerProp = new HashMap<>();
-        headerProp.put(HttpHeaders.AUTHORIZATION, KerberosConstants.NEGOTIATE + " " +
-                java.util.Base64.getEncoder().encodeToString(serviceTicket));
-        msgCtx.setProperty(org.apache.axis2.context.MessageContext.TRANSPORT_HEADERS, headerProp);
-
+        
         Map<String, String> headers = (Map<String, String>) msgCtx.getProperty(
                 org.apache.axis2.context.MessageContext.TRANSPORT_HEADERS);
         ConcurrentHashMap<String, Object> headerProperties = new ConcurrentHashMap<>();
